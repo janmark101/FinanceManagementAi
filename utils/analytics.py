@@ -2,7 +2,14 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import pandas as pd
+import plotly.graph_objects as go
 
+
+plot_helper = {
+    "Year" : 'Y',
+    "Month" : "M",
+    "Day" : "D"
+}
 
 
 def analytics_page(table : str, conn):
@@ -21,29 +28,60 @@ def analytics_page(table : str, conn):
         st.subheader("📊 Analiza danych")
         col1, col2 = st.columns(2)
         
-        month, year = datetime.today().month, datetime.today().year
+        result = pd.DataFrame([], columns=['Period','price'])
         
-
         with col1:
-            st.subheader(f"Expenses in {datetime.today().strftime('%B')}")
-            fig, ax = plt.subplots()
-            filtered_df = df[(df['date'].dt.year==year) & (df['date'].dt.month==month)]
-            filtered_df = filtered_df.groupby('date')['price'].sum()
-            filtered_df.plot(kind='line', color='skyblue', marker='o', linestyle='-', linewidth=2)
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Price")
-            st.pyplot(fig)
-
+            date_col1, date_col2 = st.columns(2)
+            with date_col1:
+                start_date = st.date_input("Start date")
+                group_by = st.selectbox("Group by : ",
+                                        options = ['Year','Month','Day'])
+            with date_col2:
+                end_date = st.date_input("End date")
+                
+                agg_fun = st.selectbox("Aggregate function : ",
+                                       options=['Mean', 'Sum'])
+            
+ 
+            with date_col1:
+                if st.button("Generate Plot 📊"):
+                    filtered_df = df[(df['date'] >= pd.Timestamp(start_date)) & (df['date'] <= pd.Timestamp(end_date))]
+                    
+                    filtered_df['Period'] = filtered_df['date'].dt.to_period(plot_helper[group_by])
+                    
+                    if agg_fun == 'Mean':
+                        result = filtered_df.groupby("Period")['price'].mean().reset_index()
+                        
+                    if agg_fun == 'Sum':
+                        result = filtered_df.groupby("Period")['price'].sum().reset_index()
+                    
+                    result['Period'] = result['Period'].dt.to_timestamp()
+            with date_col2:
+                if result is not None:
+                    st.dataframe(result, use_container_width=True)
+            
+            
         with col2:
-            df_filtered = df[df['date'] >= (datetime.today()-timedelta(days=150))]
-            df_filtered['month'] = df_filtered['date'].dt.to_period('M')
-            df_filtered = df_filtered.groupby('month')['price'].sum().reset_index()
-            df_filtered['month'] = pd.to_datetime(df_filtered['month'], format='%Y-%m')
-            print(df_filtered)
-            st.subheader("Pole 1 - Liczność")
-            fig, ax = plt.subplots()
-            plt.bar(df_filtered['month'], df_filtered['price'], color='skyblue')
-            ax.set_ylabel("")
-            st.pyplot(fig)
+            if result is not None:
+                fig = go.Figure()
+
+                fig.add_trace(go.Bar(
+                    x=result["Period"], 
+                    y=result["price"], 
+                    marker=dict(color="#7F0F30"),
+                    name="Money"
+                ))
+
+                fig.update_layout(
+                    plot_bgcolor="rgb(14, 17, 23)", 
+                    paper_bgcolor="rgb(14, 17, 23)",  
+                    font=dict(color="white"),  
+                    xaxis=dict( gridcolor="gray"),
+                    yaxis=dict(title="Money", gridcolor="gray")
+                )
+
+                st.plotly_chart(fig, use_container_width=True)
+
+
     else:
         st.warning("Brak danych w bazie. Dodaj nowe rekordy na stronie '📤 Wgraj plik'.")

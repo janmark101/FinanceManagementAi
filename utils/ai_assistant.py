@@ -39,7 +39,7 @@ def assistant_page(table : str, conn):
     for msg in st.session_state.messages:
         if msg['role'] == 'user':
             containter.chat_message("user").write(msg['content'])
-        else:
+        elif msg['role'] == 'assistant':
             containter.chat_message("assistant").write(msg['content'])
         
 
