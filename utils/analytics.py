@@ -1,8 +1,7 @@
 import streamlit as st
-import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
 import pandas as pd
 import plotly.graph_objects as go
+from .utils import delete_record, load_db_to_df
 
 
 plot_helper = {
@@ -12,20 +11,37 @@ plot_helper = {
 }
 
 
-def analytics_page(table : str, conn):
-    st.title("📋 Database")
-    # colored_header("📋 Database",color_name="green-70")
+def analytics_page(table : str, conn, cursor):
+    """
+    Function to load analytics page with functions to load db 
+    """
+    df = load_db_to_df(table=table, conn=conn)
+    
+    col1, col2 = st.columns([2,1])
+    with col1:
+        st.title("📋 Database")
+    
+    with col2:
+        del_col1, del_col2, del_col3  = st.columns([2,1,2])
+        with del_col1:
+            record_id = st.text_input(label=" ", placeholder="Insert ID to delete")
+        with del_col2:
+            st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+            if st.button("Delete"):
+                with del_col3:
+                    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+                    if delete_record(record_id=record_id, table=table, conn=conn, cursor=cursor):
+                        df = load_db_to_df(table=table, conn=conn)
+                        st.success("Success 🎈")
+                    else:
+                        st.error("Try again! 😕")
 
-    df = pd.read_sql_query(f"SELECT * FROM {table}", conn, index_col='id', parse_dates=['date'])
-    df['date'] = pd.to_datetime(df['date'], errors='coerce')
 
     if not df.empty:
         st.dataframe(df, use_container_width=True)
-
-        record_id = st.selectbox("Wybierz rekord do edycji/usunięcia", df.index)
+       
         
-        
-        st.subheader("📊 Analiza danych")
+        st.subheader("📊 Data analysis")
         col1, col2 = st.columns(2)
         
         result = pd.DataFrame([], columns=['Period','price'])
@@ -44,7 +60,7 @@ def analytics_page(table : str, conn):
             
  
             with date_col1:
-                if st.button("Generate Plot 📊"):
+                if st.button("Generate Plot 📊", use_container_width=True):
                     filtered_df = df[(df['date'] >= pd.Timestamp(start_date)) & (df['date'] <= pd.Timestamp(end_date))]
                     
                     filtered_df['Period'] = filtered_df['date'].dt.to_period(plot_helper[group_by])
@@ -84,4 +100,7 @@ def analytics_page(table : str, conn):
 
 
     else:
-        st.warning("Brak danych w bazie. Dodaj nowe rekordy na stronie '📤 Wgraj plik'.")
+        st.warning("Database is empty.")
+        
+        
+        
